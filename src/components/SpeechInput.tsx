@@ -16,7 +16,9 @@ const SpeechInput = ({ onTableCreate, onRowAdd }: SpeechInputProps) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const isManualStopRef = useRef(false);
 
   useEffect(() => {
     // Check if browser supports speech recognition
@@ -35,6 +37,7 @@ const SpeechInput = ({ onTableCreate, onRowAdd }: SpeechInputProps) => {
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
+    recognition.maxAlternatives = 1;
 
     recognition.onresult = (event) => {
       let interim = '';
@@ -71,44 +74,111 @@ const SpeechInput = ({ onTableCreate, onRowAdd }: SpeechInputProps) => {
             description: t('rowAdded'),
           });
         }
+        
+        // Reset retry count on successful recognition
+        setRetryCount(0);
       }
     };
 
     recognition.onerror = (event) => {
       console.error('Speech recognition error:', event.error);
-      if (event.error !== 'no-speech') {
+      
+      // Handle network errors with automatic retry
+      if (event.error === 'network') {
+        if (!isManualStopRef.current && retryCount < 3) {
+          console.log('Network error, retrying...', retryCount + 1);
+          setRetryCount(prev => prev + 1);
+          
+          // Retry after a short delay
+          setTimeout(() => {
+            if (recognitionRef.current && isListening) {
+              try {
+                recognitionRef.current.start();
+              } catch (e) {
+                console.error('Error restarting recognition:', e);
+              }
+            }
+          }, 1000);
+        } else {
+          toast({
+            title: t('error'),
+            description: 'Network connection lost. Please check your internet and try again.',
+            variant: 'destructive',
+          });
+          setIsListening(false);
+          setRetryCount(0);
+        }
+      } else if (event.error === 'no-speech') {
+        // Don't show error for no-speech, it's normal
+        console.log('No speech detected');
+      } else if (event.error === 'aborted') {
+        // Recognition was aborted, likely user stopped it
+        setIsListening(false);
+      } else {
         toast({
           title: t('error'),
           description: `Speech recognition error: ${event.error}`,
           variant: 'destructive',
         });
+        setIsListening(false);
       }
-      setIsListening(false);
     };
 
     recognition.onend = () => {
-      setIsListening(false);
+      console.log('Recognition ended');
       setInterimTranscript('');
+      
+      // Auto-restart if it wasn't manually stopped and we're supposed to be listening
+      if (!isManualStopRef.current && isListening) {
+        console.log('Auto-restarting recognition...');
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error('Error auto-restarting:', e);
+          setIsListening(false);
+        }
+      } else {
+        setIsListening(false);
+      }
+    };
+
+    recognition.onstart = () => {
+      console.log('Recognition started');
+      setRetryCount(0);
     };
 
     recognitionRef.current = recognition;
 
     return () => {
       if (recognitionRef.current) {
+        isManualStopRef.current = true;
         recognitionRef.current.stop();
       }
     };
-  }, [onTableCreate, onRowAdd, t, transcript]);
+  }, [onTableCreate, onRowAdd, t, transcript, isListening, retryCount]);
 
   const toggleListening = () => {
     if (!recognitionRef.current) return;
 
     if (isListening) {
+      isManualStopRef.current = true;
       recognitionRef.current.stop();
       setIsListening(false);
+      setRetryCount(0);
     } else {
-      recognitionRef.current.start();
-      setIsListening(true);
+      isManualStopRef.current = false;
+      setRetryCount(0);
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (e) {
+        console.error('Error starting recognition:', e);
+        toast({
+          title: t('error'),
+          description: 'Could not start speech recognition. Please try again.',
+          variant: 'destructive',
+        });
+      }
       setInterimTranscript('');
     }
   };
