@@ -85,7 +85,7 @@ const SpeechInput = ({ onTableCreate, onRowAdd }: SpeechInputProps) => {
       
       // Handle network errors with automatic retry
       if (event.error === 'network') {
-        if (!isManualStopRef.current && retryCount < 3) {
+        if (!isManualStopRef.current && retryCount < 2) {
           console.log('Network error, retrying...', retryCount + 1);
           setRetryCount(prev => prev + 1);
           
@@ -98,16 +98,23 @@ const SpeechInput = ({ onTableCreate, onRowAdd }: SpeechInputProps) => {
                 console.error('Error restarting recognition:', e);
               }
             }
-          }, 1000);
+          }, 1500);
         } else {
           toast({
             title: t('error'),
-            description: 'Network connection lost. Please check your internet and try again.',
+            description: 'Speech recognition unavailable. Try using the published app or a different browser.',
             variant: 'destructive',
           });
           setIsListening(false);
           setRetryCount(0);
         }
+      } else if (event.error === 'not-allowed') {
+        toast({
+          title: t('error'),
+          description: 'Microphone access denied. Please allow microphone permissions in your browser settings.',
+          variant: 'destructive',
+        });
+        setIsListening(false);
       } else if (event.error === 'no-speech') {
         // Don't show error for no-speech, it's normal
         console.log('No speech detected');
@@ -236,6 +243,15 @@ const SpeechInput = ({ onTableCreate, onRowAdd }: SpeechInputProps) => {
             <span className="text-accent font-bold">•</span>
             <p className="text-muted-foreground">{t('exampleAdd')}</p>
           </div>
+        </div>
+        
+        <div className="mt-4 pt-4 border-t border-border">
+          <p className="text-xs text-muted-foreground">
+            💡 <strong>Note:</strong> If speech recognition doesn't work in preview, try:
+            <br />• Publish the app and use the live version
+            <br />• Use Chrome or Edge browser
+            <br />• Grant microphone permissions when prompted
+          </p>
         </div>
       </Card>
     </div>
