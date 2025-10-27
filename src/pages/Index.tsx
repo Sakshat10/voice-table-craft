@@ -12,8 +12,10 @@ const Index = () => {
   const [rows, setRows] = useState<TableRow[]>([]);
 
   const handleTableCreate = (newColumns: TableColumn[]) => {
+    console.log('🔥 handleTableCreate called with:', newColumns);
     setColumns(newColumns);
     setRows([]);
+    console.log('✅ Columns state updated');
   };
 
   const handleRowAdd = (rowData: string[]) => {

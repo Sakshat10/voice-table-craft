@@ -58,21 +58,29 @@ const SpeechInput = ({ onTableCreate, onRowAdd }: SpeechInputProps) => {
         const newTranscript = transcript + ' ' + final;
         setTranscript(newTranscript);
         
+        console.log('🎯 Complete transcript:', newTranscript.trim());
+        
         // Parse the complete accumulated transcript, not just the final chunk
         const command = parseVoiceCommand(newTranscript.trim());
         
+        console.log('📋 Parsed command result:', command);
+        
         if (command.type === 'create' && command.columns) {
+          console.log('✅ Creating table with columns:', command.columns);
           onTableCreate(command.columns);
           toast({
             title: t('success'),
             description: t('tableCreated', { count: command.columns.length }),
           });
         } else if (command.type === 'add' && command.rowData) {
+          console.log('✅ Adding row with data:', command.rowData);
           onRowAdd(command.rowData);
           toast({
             title: t('success'),
             description: t('rowAdded'),
           });
+        } else {
+          console.log('⚠️ Command not recognized as create or add');
         }
         
         // Reset retry count on successful recognition
