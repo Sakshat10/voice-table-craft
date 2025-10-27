@@ -58,8 +58,8 @@ const SpeechInput = ({ onTableCreate, onRowAdd }: SpeechInputProps) => {
         const newTranscript = transcript + ' ' + final;
         setTranscript(newTranscript);
         
-        // Parse the command
-        const command = parseVoiceCommand(final);
+        // Parse the complete accumulated transcript, not just the final chunk
+        const command = parseVoiceCommand(newTranscript.trim());
         
         if (command.type === 'create' && command.columns) {
           onTableCreate(command.columns);
